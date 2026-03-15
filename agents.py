@@ -19,13 +19,20 @@ from migration_tools import (
 )
 
 
-def create_llm(model: str = "gpt-4o", temperature: float = 0.1, rpm: int = 10) -> LLM:
+def create_llm(
+    model: str = "gpt-4o",
+    temperature: float = 0.1,
+    rpm: int = 10,
+    max_tokens: int = 16384,
+) -> LLM:
     """
     CrewAI 1.x uses its own LLM wrapper backed by LiteLLM.
     Low temperature = more deterministic code output.
     rpm: requests-per-minute cap — LiteLLM auto-sleeps to stay under the limit.
+    max_tokens: raise from GPT-4o's default 4096 to 16384 so write_batch_files
+                (19 files ≈ 5000+ tokens of JSON) is never truncated mid-response.
     """
-    return LLM(model=model, temperature=temperature, rpm=rpm)
+    return LLM(model=model, temperature=temperature, rpm=rpm, max_tokens=max_tokens)
 
 
 def create_all_agents(
@@ -33,12 +40,13 @@ def create_all_agents(
     legacy_path: str = "./legacy_sample",
     output_path: str = "./output/LegacyInventory",
     rpm: int = 10,
+    max_tokens: int = 16384,
 ) -> dict:
     """
     Factory — creates and returns all 4 agents as a dict.
     Call once from main.py.
     """
-    llm = create_llm(model, rpm=rpm)
+    llm = create_llm(model, rpm=rpm, max_tokens=max_tokens)
 
     # ──────────────────────────────────────────────
     # Agent 1: Manager

@@ -59,6 +59,7 @@ def run_migration(legacy_path: str, output_path: str) -> str:
         legacy_path=config.legacy_project_path,
         output_path=config.output_project_path,
         rpm=config.llm_rpm,
+        max_tokens=config.llm_max_tokens,
     )
 
     # ── Tasks ────────────────────────────────────

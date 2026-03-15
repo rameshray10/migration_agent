@@ -74,6 +74,7 @@ class MigrationConfig(BaseSettings):
     output_project_path: str = ""                             # OUTPUT_PROJECT_PATH (empty = auto-derive)
     max_retry_loops: int = 3                              # MAX_RETRY_LOOPS
     llm_rpm: int = 10                                     # LLM_RPM — max requests/min (throttles API calls)
+    llm_max_tokens: int = 16384                           # LLM_MAX_TOKENS — max tokens per response (gpt-4o default is 4096, raises to 16384)
     use_memory: bool = False                              # USE_MEMORY — enables CrewAI shared memory (costs extra embedding tokens)
     verbose: bool = True                           # VERBOSE
 
@@ -143,6 +144,7 @@ class MigrationConfig(BaseSettings):
         return (
             f"  LLM Model    : {self.llm_model}\n"
             f"  LLM RPM      : {self.llm_rpm} req/min\n"
+            f"  LLM MaxTokens: {self.llm_max_tokens}\n"
             f"  Memory       : {'✅ On (extra embedding calls)' if self.use_memory else '⚡ Off (cheaper)'}\n"
             f"  Legacy Path  : {self.legacy_project_path}\n"
             f"  Output Path  : {self.output_project_path}\n"
