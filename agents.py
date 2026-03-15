@@ -19,24 +19,26 @@ from migration_tools import (
 )
 
 
-def create_llm(model: str = "gpt-4o", temperature: float = 0.1) -> LLM:
+def create_llm(model: str = "gpt-4o", temperature: float = 0.1, rpm: int = 10) -> LLM:
     """
     CrewAI 1.x uses its own LLM wrapper backed by LiteLLM.
     Low temperature = more deterministic code output.
+    rpm: requests-per-minute cap — LiteLLM auto-sleeps to stay under the limit.
     """
-    return LLM(model=model, temperature=temperature)
+    return LLM(model=model, temperature=temperature, rpm=rpm)
 
 
 def create_all_agents(
     model: str = "gpt-4o",
     legacy_path: str = "./legacy_sample",
-    output_path: str = "./output/MigratedApp",
+    output_path: str = "./output/LegacyInventory",
+    rpm: int = 10,
 ) -> dict:
     """
     Factory — creates and returns all 4 agents as a dict.
     Call once from main.py.
     """
-    llm = create_llm(model)
+    llm = create_llm(model, rpm=rpm)
 
     # ──────────────────────────────────────────────
     # Agent 1: Manager
@@ -98,7 +100,7 @@ def create_all_agents(
         tools=get_developer_tools(),
         allow_delegation=False,
         verbose=True,
-        max_iter=10,
+        max_iter=20,
     )
 
     # ──────────────────────────────────────────────
@@ -127,7 +129,7 @@ def create_all_agents(
         tools=get_tester_tools(),
         allow_delegation=False,
         verbose=True,
-        max_iter=8,
+        max_iter=12,
     )
 
     # ──────────────────────────────────────────────
@@ -159,7 +161,7 @@ def create_all_agents(
         tools=get_critic_tools(),
         allow_delegation=False,
         verbose=True,
-        max_iter=6,
+        max_iter=10,
     )
 
     return {

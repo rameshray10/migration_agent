@@ -14,6 +14,8 @@ Task order:
   5. task_report    → Manager produces final COMPLETE / INCOMPLETE verdict
 """
 
+from pathlib import Path
+
 from crewai import Task
 
 
@@ -28,7 +30,7 @@ def create_tasks(agents: dict, legacy_path: str, output_path: str) -> list[Task]
     tester = agents["tester"]
     critic = agents["critic"]
 
-    project_name = output_path.rstrip("/").split("/")[-1]
+    project_name = Path(output_path).name
 
     # ──────────────────────────────────────────────
     # Task 1 — Analyze Legacy Project
@@ -87,9 +89,12 @@ Each section must reference actual files and code found in the legacy project.
     task_migrate = Task(
         description=f"""
 Using the Migration Analysis Report from Task 1, generate a complete .NET Core 8 MVC CRUD application.
-Write every file using the write_file tool. Output path: {output_path}
 
-FILES TO GENERATE (write each one):
+IMPORTANT: Use write_batch_files to write ALL files in a single call (pass a dict of file_path → content).
+Do NOT call write_file separately for each file — one batch call saves API quota.
+Output path: {output_path}
+
+FILES TO GENERATE (include all in the single write_batch_files call):
 
 ── {output_path}/{project_name}.csproj ──
 <Project Sdk="Microsoft.NET.Sdk.Web">
@@ -191,17 +196,12 @@ Write and run xUnit tests for the migrated .NET Core 8 app at: {output_path}
 Steps:
 1. list_files on {output_path} to understand the project structure
 2. Read the Controller and Model files
-3. Write the test project file:
-   {output_path}.Tests/{project_name}.Tests.csproj
-
-   Must reference:
-     xunit (2.6.0+)
-     Microsoft.NET.Test.Sdk
-     xunit.runner.visualstudio
-     Microsoft.EntityFrameworkCore.InMemory
-   Must ProjectReference the main app.
-
-4. Write {output_path}.Tests/CrudControllerTests.cs
+3. Use write_batch_files to write BOTH test files in one call:
+   - {output_path}.Tests/{project_name}.Tests.csproj
+     Must reference: xunit (2.6.0+), Microsoft.NET.Test.Sdk,
+     xunit.runner.visualstudio, Microsoft.EntityFrameworkCore.InMemory.
+     Must ProjectReference the main app.
+   - {output_path}.Tests/CrudControllerTests.cs
 
    Setup pattern (use InMemory so no real SQL Server needed):
      var options = new DbContextOptionsBuilder<AppDbContext>()

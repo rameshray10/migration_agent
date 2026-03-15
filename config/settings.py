@@ -34,8 +34,24 @@ Usage in main.py — identical to before, nothing changes there:
 """
 
 from pathlib import Path
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _derive_project_name(legacy_path: str) -> str:
+    """
+    Infer the project name from the legacy path.
+    Priority: .sln filename → first subdirectory → last path segment.
+    """
+    base = Path(legacy_path)
+    if base.exists():
+        sln_files = sorted(base.glob("*.sln"))
+        if sln_files:
+            return sln_files[0].stem
+        subdirs = sorted(d for d in base.iterdir() if d.is_dir())
+        if subdirs:
+            return subdirs[0].name
+    return base.name or "MigratedApp"
 
 
 class MigrationConfig(BaseSettings):
@@ -55,8 +71,9 @@ class MigrationConfig(BaseSettings):
     # ── Optional — sensible defaults if not set in .env ────────────────
     llm_model: str = "gpt-4o"  # LLM_MODEL
     legacy_project_path: str = "./legacy_sample"              # LEGACY_PROJECT_PATH
-    output_project_path: str = "./output/MigratedApp"         # OUTPUT_PROJECT_PATH
+    output_project_path: str = ""                             # OUTPUT_PROJECT_PATH (empty = auto-derive)
     max_retry_loops: int = 3                              # MAX_RETRY_LOOPS
+    llm_rpm: int = 10                                     # LLM_RPM — max requests/min (throttles API calls)
     verbose: bool = True                           # VERBOSE
 
     # ── Pydantic-settings configuration ────────────────────────────────
@@ -77,6 +94,14 @@ class MigrationConfig(BaseSettings):
         if v < 1:
             raise ValueError(f"MAX_RETRY_LOOPS must be >= 1, got: {v}")
         return v
+
+    @model_validator(mode="after")
+    def derive_output_path(self) -> "MigrationConfig":
+        """Auto-derive output path from the legacy project name when not explicitly set."""
+        if not self.output_project_path:
+            project_name = _derive_project_name(self.legacy_project_path)
+            self.output_project_path = f"./output/{project_name}"
+        return self
 
     # ── Business-level validation (checks across multiple fields) ───────
 
@@ -116,6 +141,7 @@ class MigrationConfig(BaseSettings):
         """
         return (
             f"  LLM Model    : {self.llm_model}\n"
+            f"  LLM RPM      : {self.llm_rpm} req/min\n"
             f"  Legacy Path  : {self.legacy_project_path}\n"
             f"  Output Path  : {self.output_project_path}\n"
             f"  Max Retries  : {self.max_retry_loops}\n"

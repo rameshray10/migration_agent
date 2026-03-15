@@ -11,7 +11,7 @@ KEY CHANGE from 0.28.8 → 1.9.3:
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Type
+from typing import ClassVar, Optional, Type
 
 from crewai.tools import BaseTool          # ← crewai.tools, not langchain.tools
 from pydantic import BaseModel, Field
@@ -47,6 +47,15 @@ class RunCommandInput(BaseModel):
 class ReadMultipleFilesInput(BaseModel):
     file_paths: list[str] = Field(
         description="List of file paths to read at once")
+
+
+class WriteBatchFilesInput(BaseModel):
+    files: dict[str, str] = Field(
+        description=(
+            "Dictionary mapping file_path → content for every file to write. "
+            "Example: {'./output/App/Program.cs': '...', './output/App/appsettings.json': '...'}"
+        )
+    )
 
 
 # ──────────────────────────────────────────────
@@ -135,7 +144,7 @@ class RunCommandTool(BaseTool):
     )
     args_schema: Type[BaseModel] = RunCommandInput
 
-    ALLOWED_PREFIXES: list[str] = ["dotnet", "cat", "ls", "find", "echo"]
+    ALLOWED_PREFIXES: ClassVar[list[str]] = ["dotnet", "cat", "ls", "find", "echo"]
 
     def _run(self, command: str, working_dir: str = ".") -> str:
         first_token = command.strip().split()[0]
@@ -192,15 +201,45 @@ class ReadMultipleFilesTool(BaseTool):
 
 
 # ──────────────────────────────────────────────
+# Tool 6: Write Multiple Files in One Call
+# ──────────────────────────────────────────────
+
+class WriteBatchFilesTool(BaseTool):
+    name: str = "write_batch_files"
+    description: str = (
+        "Writes ALL files for the migrated project in a single call. "
+        "Pass a dict of {file_path: content} for every file. "
+        "Creates parent directories automatically. "
+        "PREFER this over calling write_file repeatedly — one call instead of many."
+    )
+    args_schema: Type[BaseModel] = WriteBatchFilesInput
+
+    def _run(self, files: dict[str, str]) -> str:
+        results = []
+        for file_path, content in files.items():
+            try:
+                path = Path(file_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                results.append(f"SUCCESS: Written → {file_path}")
+            except Exception as e:
+                results.append(f"ERROR writing {file_path}: {str(e)}")
+        written = sum(1 for r in results if r.startswith("SUCCESS"))
+        results.append(f"\nTotal: {written}/{len(files)} files written successfully.")
+        return "\n".join(results)
+
+
+# ──────────────────────────────────────────────
 # Convenience getters — called from agents.py
 # ──────────────────────────────────────────────
 
 def get_developer_tools() -> list:
-    """Developer needs read + write + dotnet CLI to scaffold and write files."""
+    """Developer needs read + write + batch write + dotnet CLI to scaffold and write files."""
     return [
         ReadFileTool(),
         ReadMultipleFilesTool(),
         WriteFileTool(),
+        WriteBatchFilesTool(),
         ListFilesTool(),
         RunCommandTool(),
     ]
@@ -212,6 +251,7 @@ def get_tester_tools() -> list:
         ReadFileTool(),
         ReadMultipleFilesTool(),
         WriteFileTool(),
+        WriteBatchFilesTool(),
         ListFilesTool(),
         RunCommandTool(),
     ]
