@@ -88,7 +88,7 @@ def run_migration(legacy_path: str, output_path: str) -> str:
         tasks=tasks,
         process=Process.sequential,   # Tasks run one after another in order
         verbose=config.verbose,       # bool from pydantic-settings
-        memory=True,                  # Agents share memory across tasks
+        memory=config.use_memory,     # False by default — saves embedding API calls
     )
 
     # ── Kick off ─────────────────────────────────
