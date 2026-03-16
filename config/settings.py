@@ -100,8 +100,14 @@ class MigrationConfig(BaseSettings):
 
     @model_validator(mode="after")
     def derive_output_path(self) -> "MigrationConfig":
-        """Auto-derive output path from the legacy project name when not explicitly set."""
-        if not self.output_project_path:
+        """Auto-derive output path from the legacy project name when not explicitly set.
+
+        "MigratedApp" is the old hardcoded fallback — always override it with the
+        real project name so stale env vars or old .env entries don't silently win.
+        """
+        from pathlib import Path as _Path
+        current_name = _Path(self.output_project_path).name if self.output_project_path else ""
+        if not self.output_project_path or current_name == "MigratedApp":
             project_name = _derive_project_name(self.legacy_project_path)
             self.output_project_path = f"./output/{project_name}"
         return self
