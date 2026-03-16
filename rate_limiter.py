@@ -47,7 +47,7 @@ class TokenRateLimiter:
     check, so memory is bounded to at most rpm_limit entries.
     """
 
-    WINDOW: int = 60  # seconds in the sliding window
+    WINDOW: int = 62  # seconds in the sliding window
 
     def __init__(self, rpm_limit: int, tpm_limit: int) -> None:
         self.rpm_limit = rpm_limit
@@ -109,9 +109,11 @@ class TokenRateLimiter:
                 # Compute minimum wait so the bottleneck entry exits the window
                 waits = []
                 if not rpm_ok and self._call_times:
-                    waits.append(self.WINDOW - (now - self._call_times[0]) + 0.1)
+                    waits.append(
+                        self.WINDOW - (now - self._call_times[0]) + 0.1)
                 if not tpm_ok and self._token_usage:
-                    waits.append(self.WINDOW - (now - self._token_usage[0][0]) + 0.1)
+                    waits.append(
+                        self.WINDOW - (now - self._token_usage[0][0]) + 0.1)
 
                 sleep_sec = max(0.1, min(max(waits or [1.0]), self.WINDOW))
 
@@ -186,11 +188,13 @@ def _patch_litellm(limiter: TokenRateLimiter) -> None:
 
         # Count prompt tokens; fall back conservatively on any error
         try:
-            prompt_tokens = litellm.token_counter(model=model, messages=messages)
+            prompt_tokens = litellm.token_counter(
+                model=model, messages=messages)
         except Exception:
             prompt_tokens = 2048
 
-        limiter.wait_if_needed(prompt_tokens=prompt_tokens, max_tokens=max_tokens)
+        limiter.wait_if_needed(
+            prompt_tokens=prompt_tokens, max_tokens=max_tokens)
         return _original_completion(*args, **kwargs)
 
     litellm.completion = _guarded_completion
